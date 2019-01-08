@@ -2,7 +2,7 @@
   "name": "lexer",
   "homepage": "https://github.com/sibvrv/lexer",
   "description": "An elegant armor-plated JavaScript lexer modelled after flex. Easily extensible to tailor to your need for perfection.",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "keywords": [
     "lex",
     "lexer",
@@ -34,7 +34,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "prepublish": "npm run build",
-    "build": "node_modules/.bin/tsc",
+    "build": "npm run lint && tsc",
+    "lint": "tslint -p .",
     "test": "mocha -r ts-node/register src/**/*.spec.ts"
   },
   "dependencies": {},
@@ -46,6 +47,7 @@
     "mocha": "^5.2.0",
     "ts-node": "^7.0.1",
     "tsconfig-paths": "^3.6.0",
+    "tslint": "^5.12.0",
     "typescript": "^3.0.1"
   }
 }

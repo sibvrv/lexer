@@ -16,17 +16,38 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var engineHasStickySupport = false;
 var engineHasUnicodeSupport = false;
 try {
-    engineHasStickySupport = typeof /(?:)/.sticky == 'boolean';
+    engineHasStickySupport = typeof /(?:)/.sticky === 'boolean';
 }
 catch (ignored) {
     engineHasStickySupport = false;
 }
 try {
-    engineHasUnicodeSupport = typeof /(?:)/.unicode == 'boolean';
+    engineHasUnicodeSupport = typeof /(?:)/.unicode === 'boolean';
 }
 catch (ignored) {
     engineHasUnicodeSupport = false;
 }
+/**
+ * Lexer Error Class
+ * @extends Error
+ */
+var LexerError = /** @class */ (function (_super) {
+    __extends(LexerError, _super);
+    function LexerError(at, token) {
+        var _this = _super.call(this) || this;
+        _this.name = 'IllegalTokenException';
+        _this.message = "Unexpected character at index " + at + ": \"" + token + "\" (hex: 0x" + token.charCodeAt(0).toString(16).toUpperCase() + ")";
+        if (Error.captureStackTrace) {
+            Error.captureStackTrace(_this, LexerError);
+        }
+        else {
+            _this.stack = (new Error()).stack;
+        }
+        return _this;
+    }
+    return LexerError;
+}(Error));
+exports.LexerError = LexerError;
 /**
  * Lexer Class
  */
@@ -38,7 +59,7 @@ var Lexer = /** @class */ (function () {
         this.remove = 0;
         this.state = 0;
         this.index = 0;
-        this.input = "";
+        this.input = '';
         this.reject = false;
         this.defunct = function (chr) {
             throw new LexerError(_this.index - 1, chr);
@@ -53,13 +74,16 @@ var Lexer = /** @class */ (function () {
     Lexer.prototype.addRule = function (pattern, action, start) {
         var global = pattern.global;
         if (!global || engineHasStickySupport && !pattern.sticky) {
-            var flags = engineHasStickySupport ? "gy" : "g";
-            if (pattern.multiline)
-                flags += "m";
-            if (pattern.ignoreCase)
-                flags += "i";
-            if (engineHasUnicodeSupport && pattern.unicode)
-                flags += "u";
+            var flags = engineHasStickySupport ? 'gy' : 'g';
+            if (pattern.multiline) {
+                flags += 'm';
+            }
+            if (pattern.ignoreCase) {
+                flags += 'i';
+            }
+            if (engineHasUnicodeSupport && pattern.unicode) {
+                flags += 'u';
+            }
             pattern = new RegExp(pattern.source, flags);
         }
         this.rules.push({
@@ -70,7 +94,6 @@ var Lexer = /** @class */ (function () {
         });
         return this;
     };
-    ;
     /**
      * Set Input Text
      * @param input
@@ -83,7 +106,6 @@ var Lexer = /** @class */ (function () {
         this.input = input;
         return this;
     };
-    ;
     /**
      * Find line and column from index in the input string
      * @param index
@@ -107,8 +129,9 @@ var Lexer = /** @class */ (function () {
      * Lex
      */
     Lexer.prototype.lex = function () {
-        if (this.tokens.length)
+        if (this.tokens.length) {
             return this.tokens.shift();
+        }
         this.reject = true;
         while (this.index <= this.input.length) {
             var matches = this.scan().splice(this.remove);
@@ -117,34 +140,35 @@ var Lexer = /** @class */ (function () {
                 if (this.reject) {
                     var match = matches.shift();
                     var result = match.result;
-                    var length_1 = match.length;
-                    this.index += length_1;
+                    var length = match.length;
+                    this.index += length;
                     this.reject = false;
                     this.remove++;
                     var token = match.action(result, this);
                     if (this.reject) {
                         this.index = result.index;
                     }
-                    else if (typeof token !== "undefined") {
+                    else if (typeof token !== 'undefined') {
                         if (Array.isArray(token)) {
                             this.tokens = token.slice(1);
                             token = token[0];
                         }
-                        if (length_1) {
+                        if (length) {
                             this.remove = 0;
                         }
                         return token;
                     }
                 }
-                else
+                else {
                     break;
+                }
             }
             var input = this.input;
             if (index < input.length) {
                 if (this.reject) {
                     this.remove = 0;
                     var token = this.defunct(input.charAt(this.index++));
-                    if (typeof token !== "undefined") {
+                    if (typeof token !== 'undefined') {
                         if (Array.isArray(token)) {
                             this.tokens = token.slice(1);
                             return token[0];
@@ -155,13 +179,15 @@ var Lexer = /** @class */ (function () {
                     }
                 }
                 else {
-                    if (this.index !== index)
+                    if (this.index !== index) {
                         this.remove = 0;
+                    }
                     this.reject = true;
                 }
             }
-            else if (matches.length)
+            else if (matches.length) {
                 this.reject = true;
+            }
             else {
                 break;
             }
@@ -176,7 +202,7 @@ var Lexer = /** @class */ (function () {
         var state = this.state;
         var lastIndex = this.index;
         var input = this.input;
-        for (var i = 0, length_2 = this.rules.length; i < length_2; i++) {
+        for (var i = 0, length = this.rules.length; i < length; i++) {
             var rule = this.rules[i];
             var start = rule.start;
             var states = start.length;
@@ -191,8 +217,9 @@ var Lexer = /** @class */ (function () {
                         action: rule.action,
                         length: result[0].length
                     });
-                    if (rule.global)
+                    if (rule.global) {
                         index = j;
+                    }
                     while (--j > index) {
                         var k = j - 1;
                         if (matches[j].length > matches[k].length) {
@@ -209,24 +236,3 @@ var Lexer = /** @class */ (function () {
     return Lexer;
 }());
 exports.Lexer = Lexer;
-/**
- * Lexer Error Class
- * @extends Error
- */
-var LexerError = /** @class */ (function (_super) {
-    __extends(LexerError, _super);
-    function LexerError(at, token) {
-        var _this = _super.call(this) || this;
-        _this.name = 'IllegalTokenException';
-        _this.message = "Unexpected character at index " + at + ": \"" + token + "\" (hex: 0x" + token.charCodeAt(0).toString(16).toUpperCase() + ")";
-        if (Error.captureStackTrace) {
-            Error.captureStackTrace(_this, LexerError);
-        }
-        else {
-            _this.stack = (new Error()).stack;
-        }
-        return _this;
-    }
-    return LexerError;
-}(Error));
-exports.LexerError = LexerError;

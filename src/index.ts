@@ -2,13 +2,13 @@ let engineHasStickySupport = false;
 let engineHasUnicodeSupport = false;
 
 try {
-  engineHasStickySupport = typeof (/(?:)/ as any).sticky == 'boolean';
+  engineHasStickySupport = typeof /(?:)/.sticky === 'boolean';
 } catch (ignored) {
   engineHasStickySupport = false;
 }
 
 try {
-  engineHasUnicodeSupport = typeof (/(?:)/ as any).unicode == 'boolean';
+  engineHasUnicodeSupport = typeof /(?:)/.unicode === 'boolean';
 } catch (ignored) {
   engineHasUnicodeSupport = false;
 }
@@ -22,7 +22,33 @@ declare global {
     length: number;
   }
 
+  interface ILexerRule {
+    pattern: RegExp;
+    global: boolean;
+    action: TLexerActionCallBack;
+    start: number[];
+  }
+
   type TLexerMatchesList = ILexerMatchResult[];
+}
+
+/**
+ * Lexer Error Class
+ * @extends Error
+ */
+export class LexerError extends Error {
+  constructor(at: number, token: string) {
+    super();
+
+    this.name = 'IllegalTokenException';
+    this.message = `Unexpected character at index ${at}: "${token}" (hex: 0x${token.charCodeAt(0).toString(16).toUpperCase()})`;
+
+    if ((Error as any).captureStackTrace) {
+      (Error as any).captureStackTrace(this, LexerError);
+    } else {
+      this.stack = (new Error()).stack;
+    }
+  }
 }
 
 /**
@@ -30,18 +56,18 @@ declare global {
  */
 export class Lexer {
 
-  private rules: any[] = [];
+  private rules: ILexerRule[] = [];
 
   private tokens: any[] = [];
   private remove = 0;
 
   private state = 0;
   private index = 0;
-  private input = "";
+  private input = '';
 
-  private reject: boolean = false;
+  private reject = false;
 
-  defunct = (chr: string) => {
+  defunct = (chr: string): any => {
     throw new LexerError(this.index - 1, chr);
   };
 
@@ -51,14 +77,20 @@ export class Lexer {
    * @param action
    * @param start
    */
-  addRule(pattern: any, action: TLexerActionCallBack, start?: number | number[]) {
-    let global = pattern.global;
+  addRule(pattern: RegExp, action: TLexerActionCallBack, start?: number | number[]) {
+    const global = pattern.global;
 
     if (!global || engineHasStickySupport && !pattern.sticky) {
-      let flags = engineHasStickySupport ? "gy" : "g";
-      if (pattern.multiline) flags += "m";
-      if (pattern.ignoreCase) flags += "i";
-      if (engineHasUnicodeSupport && pattern.unicode) flags += "u";
+      let flags = engineHasStickySupport ? 'gy' : 'g';
+      if (pattern.multiline) {
+        flags += 'm';
+      }
+      if (pattern.ignoreCase) {
+        flags += 'i';
+      }
+      if (engineHasUnicodeSupport && pattern.unicode) {
+        flags += 'u';
+      }
       pattern = new RegExp(pattern.source, flags);
     }
 
@@ -70,7 +102,7 @@ export class Lexer {
     });
 
     return this;
-  };
+  }
 
   /**
    * Set Input Text
@@ -84,7 +116,7 @@ export class Lexer {
     this.tokens.length = 0;
     this.input = input;
     return this;
-  };
+  }
 
   /**
    * Find line and column from index in the input string
@@ -109,19 +141,21 @@ export class Lexer {
    * Lex
    */
   lex() {
-    if (this.tokens.length) return this.tokens.shift();
+    if (this.tokens.length) {
+      return this.tokens.shift();
+    }
 
     this.reject = true;
 
     while (this.index <= this.input.length) {
-      let matches = this.scan().splice(this.remove);
-      let index = this.index;
+      const matches = this.scan().splice(this.remove);
+      const index = this.index;
 
       while (matches.length) {
         if (this.reject) {
-          let match = matches.shift()!;
-          let result = match.result!;
-          let length = match.length;
+          const match = matches.shift()!;
+          const result = match.result!;
+          const length = match.length;
           this.index += length;
           this.reject = false;
           this.remove++;
@@ -129,7 +163,7 @@ export class Lexer {
           let token = match.action(result, this);
           if (this.reject) {
             this.index = result.index;
-          } else if (typeof token !== "undefined") {
+          } else if (typeof token !== 'undefined') {
             if (Array.isArray(token)) {
               this.tokens = token.slice(1);
               token = token[0];
@@ -140,17 +174,19 @@ export class Lexer {
             }
             return token;
           }
-        } else break;
+        } else {
+          break;
+        }
       }
 
-      let input = this.input;
+      const input = this.input;
 
       if (index < input.length) {
         if (this.reject) {
           this.remove = 0;
 
-          let token: any = this.defunct(input.charAt(this.index++));
-          if (typeof token !== "undefined") {
+          const token: any = this.defunct(input.charAt(this.index++));
+          if (typeof token !== 'undefined') {
             if (Array.isArray(token)) {
               this.tokens = token.slice(1);
               return token[0];
@@ -159,12 +195,14 @@ export class Lexer {
             }
           }
         } else {
-          if (this.index !== index) this.remove = 0;
+          if (this.index !== index) {
+            this.remove = 0;
+          }
           this.reject = true;
         }
-      } else if (matches.length)
+      } else if (matches.length) {
         this.reject = true;
-      else {
+      } else {
         break;
       }
     }
@@ -174,24 +212,24 @@ export class Lexer {
    * Scan
    */
   scan(): TLexerMatchesList {
-    let matches: TLexerMatchesList = [];
+    const matches: TLexerMatchesList = [];
 
     let index = 0;
 
-    let state = this.state;
-    let lastIndex = this.index;
-    let input = this.input;
+    const state = this.state;
+    const lastIndex = this.index;
+    const input = this.input;
 
     for (let i = 0, length = this.rules.length; i < length; i++) {
-      let rule = this.rules[i];
-      let start = rule.start;
-      let states = start.length;
+      const rule = this.rules[i];
+      const start = rule.start;
+      const states = start.length;
 
       if ((!states || start.indexOf(state) >= 0) ||
         (state % 2 && states === 1 && !start[0])) {
-        let pattern = rule.pattern;
+        const pattern = rule.pattern;
         pattern.lastIndex = lastIndex;
-        let result = pattern.exec(input);
+        const result = pattern.exec(input);
 
         if (result && result.index === lastIndex) {
           let j = matches.push({
@@ -200,13 +238,15 @@ export class Lexer {
             length: result[0].length
           });
 
-          if (rule.global) index = j;
+          if (rule.global) {
+            index = j;
+          }
 
           while (--j > index) {
-            let k = j - 1;
+            const k = j - 1;
 
             if (matches[j].length > matches[k].length) {
-              let temple = matches[j];
+              const temple = matches[j];
               matches[j] = matches[k];
               matches[k] = temple;
             }
@@ -216,24 +256,5 @@ export class Lexer {
     }
 
     return matches;
-  }
-}
-
-/**
- * Lexer Error Class
- * @extends Error
- */
-export class LexerError extends Error {
-  constructor(at: number, token: string) {
-    super();
-
-    this.name = 'IllegalTokenException';
-    this.message = `Unexpected character at index ${at}: "${token}" (hex: 0x${token.charCodeAt(0).toString(16).toUpperCase()})`;
-
-    if ((Error as any).captureStackTrace) {
-      (Error as any).captureStackTrace(this, LexerError);
-    } else {
-      this.stack = (new Error()).stack;
-    }
   }
 }

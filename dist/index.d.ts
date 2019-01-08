@@ -5,7 +5,20 @@ declare global {
         action: TLexerActionCallBack;
         length: number;
     }
+    interface ILexerRule {
+        pattern: RegExp;
+        global: boolean;
+        action: TLexerActionCallBack;
+        start: number[];
+    }
     type TLexerMatchesList = ILexerMatchResult[];
+}
+/**
+ * Lexer Error Class
+ * @extends Error
+ */
+export declare class LexerError extends Error {
+    constructor(at: number, token: string);
 }
 /**
  * Lexer Class
@@ -18,14 +31,14 @@ export declare class Lexer {
     private index;
     private input;
     private reject;
-    defunct: (chr: string) => never;
+    defunct: (chr: string) => any;
     /**
      * Add Rule
      * @param pattern
      * @param action
      * @param start
      */
-    addRule(pattern: any, action: TLexerActionCallBack, start?: number | number[]): this;
+    addRule(pattern: RegExp, action: TLexerActionCallBack, start?: number | number[]): this;
     /**
      * Set Input Text
      * @param input
@@ -47,11 +60,4 @@ export declare class Lexer {
      * Scan
      */
     scan(): TLexerMatchesList;
-}
-/**
- * Lexer Error Class
- * @extends Error
- */
-export declare class LexerError extends Error {
-    constructor(at: number, token: string);
 }

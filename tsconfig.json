@@ -2,9 +2,17 @@
   "compilerOptions": {
     "target": "es5",
     "module": "commonjs",
+    "lib": [
+      "es5",
+      "es6",
+      "es2015"
+    ],
     "declaration": true,
     "outDir": "./dist",
     "baseUrl": "./",
+    "typeRoots": [
+      "./src"
+    ],
     "strict": true
   },
   "include": [
