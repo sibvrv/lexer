@@ -2,7 +2,7 @@
   "name": "lexer",
   "homepage": "https://github.com/sibvrv/lexer",
   "description": "An elegant armor-plated JavaScript lexer modelled after flex. Easily extensible to tailor to your need for perfection.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "keywords": [
     "lex",
     "lexer",

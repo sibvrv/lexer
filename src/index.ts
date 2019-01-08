@@ -25,6 +25,9 @@ declare global {
   type TLexerMatchesList = ILexerMatchResult[];
 }
 
+/**
+ * Lexer Class
+ */
 export class Lexer {
 
   private rules: any[] = [];
@@ -42,6 +45,12 @@ export class Lexer {
     throw new LexerError(this.index - 1, chr);
   };
 
+  /**
+   * Add Rule
+   * @param pattern
+   * @param action
+   * @param start
+   */
   addRule(pattern: any, action: TLexerActionCallBack, start?: number | number[]) {
     let global = pattern.global;
 
@@ -63,6 +72,10 @@ export class Lexer {
     return this;
   };
 
+  /**
+   * Set Input Text
+   * @param input
+   */
   setInput(input: string) {
     this.remove = 0;
 
@@ -73,6 +86,28 @@ export class Lexer {
     return this;
   };
 
+  /**
+   * Find line and column from index in the input string
+   * @param index
+   */
+  getLineColumn(index: number) {
+    index = Math.max(0, Math.min(index, this.input.length));
+    let line = 1;
+    let col = 1;
+    for (let i = 0; i < index; i++) {
+      if (this.input[i] === '\n') {
+        line++;
+        col = 1;
+      } else {
+        col++;
+      }
+    }
+    return {line, col};
+  }
+
+  /**
+   * Lex
+   */
   lex() {
     if (this.tokens.length) return this.tokens.shift();
 
@@ -135,6 +170,9 @@ export class Lexer {
     }
   }
 
+  /**
+   * Scan
+   */
   scan(): TLexerMatchesList {
     let matches: TLexerMatchesList = [];
 
@@ -181,6 +219,10 @@ export class Lexer {
   }
 }
 
+/**
+ * Lexer Error Class
+ * @extends Error
+ */
 export class LexerError extends Error {
   constructor(at: number, token: string) {
     super();

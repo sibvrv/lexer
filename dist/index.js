@@ -27,6 +27,9 @@ try {
 catch (ignored) {
     engineHasUnicodeSupport = false;
 }
+/**
+ * Lexer Class
+ */
 var Lexer = /** @class */ (function () {
     function Lexer() {
         var _this = this;
@@ -41,6 +44,12 @@ var Lexer = /** @class */ (function () {
             throw new LexerError(_this.index - 1, chr);
         };
     }
+    /**
+     * Add Rule
+     * @param pattern
+     * @param action
+     * @param start
+     */
     Lexer.prototype.addRule = function (pattern, action, start) {
         var global = pattern.global;
         if (!global || engineHasStickySupport && !pattern.sticky) {
@@ -62,6 +71,10 @@ var Lexer = /** @class */ (function () {
         return this;
     };
     ;
+    /**
+     * Set Input Text
+     * @param input
+     */
     Lexer.prototype.setInput = function (input) {
         this.remove = 0;
         this.state = 0;
@@ -71,6 +84,28 @@ var Lexer = /** @class */ (function () {
         return this;
     };
     ;
+    /**
+     * Find line and column from index in the input string
+     * @param index
+     */
+    Lexer.prototype.getLineColumn = function (index) {
+        index = Math.max(0, Math.min(index, this.input.length));
+        var line = 1;
+        var col = 1;
+        for (var i = 0; i < index; i++) {
+            if (this.input[i] === '\n') {
+                line++;
+                col = 1;
+            }
+            else {
+                col++;
+            }
+        }
+        return { line: line, col: col };
+    };
+    /**
+     * Lex
+     */
     Lexer.prototype.lex = function () {
         if (this.tokens.length)
             return this.tokens.shift();
@@ -132,6 +167,9 @@ var Lexer = /** @class */ (function () {
             }
         }
     };
+    /**
+     * Scan
+     */
     Lexer.prototype.scan = function () {
         var matches = [];
         var index = 0;
@@ -171,6 +209,10 @@ var Lexer = /** @class */ (function () {
     return Lexer;
 }());
 exports.Lexer = Lexer;
+/**
+ * Lexer Error Class
+ * @extends Error
+ */
 var LexerError = /** @class */ (function (_super) {
     __extends(LexerError, _super);
     function LexerError(at, token) {
