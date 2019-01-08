@@ -1,138 +1,163 @@
-if (typeof module === "object" && typeof module.exports === "object") module.exports = Lexer;
+let engineHasStickySupport = false;
+let engineHasUnicodeSupport = false;
 
-Lexer.defunct = function (chr) {
-  throw new Error("Unexpected character at index " + (this.index - 1) + ": " + chr);
-};
 try {
-  Lexer.engineHasStickySupport = typeof /(?:)/.sticky == 'boolean';
+  engineHasStickySupport = typeof (/(?:)/ as any).sticky == 'boolean';
 } catch (ignored) {
-  Lexer.engineHasStickySupport = false;
-}
-try {
-  Lexer.engineHasUnicodeSupport = typeof /(?:)/.unicode == 'boolean';
-} catch (ignored) {
-  Lexer.engineHasUnicodeSupport = false;
+  engineHasStickySupport = false;
 }
 
-function Lexer(defunct) {
-  if (typeof defunct !== "function") defunct = Lexer.defunct;
+try {
+  engineHasUnicodeSupport = typeof (/(?:)/ as any).unicode == 'boolean';
+} catch (ignored) {
+  engineHasUnicodeSupport = false;
+}
 
-  var tokens = [];
-  var rules = [];
-  var remove = 0;
-  this.state = 0;
-  this.index = 0;
-  this.input = "";
+declare global {
+  type TLexerActionCallBack = (result?: RegExpExecArray | null, sender?: Lexer) => any;
 
-  this.addRule = function (pattern, action, start) {
-    var global = pattern.global;
+  interface ILexerMatchResult {
+    result: RegExpExecArray | null;
+    action: TLexerActionCallBack;
+    length: number;
+  }
 
-    if (!global || Lexer.engineHasStickySupport && !pattern.sticky) {
-      var flags = Lexer.engineHasStickySupport ? "gy" : "g";
+  type TLexerMatchesList = ILexerMatchResult[];
+}
+
+export class Lexer {
+
+  private rules: any[] = [];
+
+  private tokens: any[] = [];
+  private remove = 0;
+
+  private state = 0;
+  private index = 0;
+  private input = "";
+
+  private reject: boolean = false;
+
+  defunct = (chr: string) => {
+    throw new LexerError(this.index - 1, chr);
+  };
+
+  addRule(pattern: any, action: TLexerActionCallBack, start?: number | number[]) {
+    let global = pattern.global;
+
+    if (!global || engineHasStickySupport && !pattern.sticky) {
+      let flags = engineHasStickySupport ? "gy" : "g";
       if (pattern.multiline) flags += "m";
       if (pattern.ignoreCase) flags += "i";
-      if (Lexer.engineHasUnicodeSupport && pattern.unicode) flags += "u";
+      if (engineHasUnicodeSupport && pattern.unicode) flags += "u";
       pattern = new RegExp(pattern.source, flags);
     }
 
-    if (Object.prototype.toString.call(start) !== "[object Array]") start = [0];
-
-    rules.push({
-      pattern: pattern,
-      global: global,
-      action: action,
-      start: start
+    this.rules.push({
+      pattern,
+      global,
+      action,
+      start: Array.isArray(start) ? start : [start || 0]
     });
 
     return this;
   };
 
-  this.setInput = function (input) {
-    remove = 0;
+  setInput(input: string) {
+    this.remove = 0;
+
     this.state = 0;
     this.index = 0;
-    tokens.length = 0;
+    this.tokens.length = 0;
     this.input = input;
     return this;
   };
 
-  this.lex = function () {
-    if (tokens.length) return tokens.shift();
+  lex() {
+    if (this.tokens.length) return this.tokens.shift();
 
     this.reject = true;
 
     while (this.index <= this.input.length) {
-      var matches = scan.call(this).splice(remove);
-      var index = this.index;
+      let matches = this.scan().splice(this.remove);
+      let index = this.index;
 
       while (matches.length) {
         if (this.reject) {
-          var match = matches.shift();
-          var result = match.result;
-          var length = match.length;
+          let match = matches.shift()!;
+          let result = match.result!;
+          let length = match.length;
           this.index += length;
           this.reject = false;
-          remove++;
+          this.remove++;
 
-          var token = match.action.apply(this, result);
-          if (this.reject) this.index = result.index;
-          else if (typeof token !== "undefined") {
-            switch (Object.prototype.toString.call(token)) {
-              case "[object Array]":
-                tokens = token.slice(1);
-                token = token[0];
-              default:
-                if (length) remove = 0;
-                return token;
+          let token = match.action(result, this);
+          if (this.reject) {
+            this.index = result.index;
+          } else if (typeof token !== "undefined") {
+            if (Array.isArray(token)) {
+              this.tokens = token.slice(1);
+              token = token[0];
             }
+
+            if (length) {
+              this.remove = 0;
+            }
+            return token;
           }
         } else break;
       }
 
-      var input = this.input;
+      let input = this.input;
 
       if (index < input.length) {
         if (this.reject) {
-          remove = 0;
-          var token = defunct.call(this, input.charAt(this.index++));
+          this.remove = 0;
+
+          let token: any = this.defunct(input.charAt(this.index++));
           if (typeof token !== "undefined") {
-            if (Object.prototype.toString.call(token) === "[object Array]") {
-              tokens = token.slice(1);
+            if (Array.isArray(token)) {
+              this.tokens = token.slice(1);
               return token[0];
-            } else return token;
+            } else {
+              return token;
+            }
           }
         } else {
-          if (this.index !== index) remove = 0;
+          if (this.index !== index) this.remove = 0;
           this.reject = true;
         }
       } else if (matches.length)
         this.reject = true;
-      else break;
+      else {
+        break;
+      }
     }
-  };
+  }
 
-  function scan() {
-    var matches = [];
-    var index = 0;
+  scan(): TLexerMatchesList {
+    let matches: TLexerMatchesList = [];
 
-    var state = this.state;
-    var lastIndex = this.index;
-    var input = this.input;
+    let index = 0;
 
-    for (var i = 0, length = rules.length; i < length; i++) {
-      var rule = rules[i];
-      var start = rule.start;
-      var states = start.length;
+    let state = this.state;
+    let lastIndex = this.index;
+    let input = this.input;
+
+    for (let i = 0, length = this.rules.length; i < length; i++) {
+      let rule = this.rules[i];
+      let start = rule.start;
+      let states = start.length;
 
       if ((!states || start.indexOf(state) >= 0) ||
         (state % 2 && states === 1 && !start[0])) {
-        var pattern = rule.pattern;
+        let pattern = rule.pattern;
         pattern.lastIndex = lastIndex;
-        var result = pattern.exec(input);
+        let result = pattern.exec(input);
 
         if (result && result.index === lastIndex) {
-          var j = matches.push({
-            result: result,
+          let j = matches.push({
+            result,
             action: rule.action,
             length: result[0].length
           });
@@ -140,10 +165,10 @@ function Lexer(defunct) {
           if (rule.global) index = j;
 
           while (--j > index) {
-            var k = j - 1;
+            let k = j - 1;
 
             if (matches[j].length > matches[k].length) {
-              var temple = matches[j];
+              let temple = matches[j];
               matches[j] = matches[k];
               matches[k] = temple;
             }
@@ -153,5 +178,20 @@ function Lexer(defunct) {
     }
 
     return matches;
+  }
+}
+
+export class LexerError extends Error {
+  constructor(at: number, token: string) {
+    super();
+
+    this.name = 'IllegalTokenException';
+    this.message = `Unexpected character at index ${at}: "${token}" (hex: 0x${token.charCodeAt(0).toString(16).toUpperCase()})`;
+
+    if ((Error as any).captureStackTrace) {
+      (Error as any).captureStackTrace(this, LexerError);
+    } else {
+      this.stack = (new Error()).stack;
+    }
   }
 }

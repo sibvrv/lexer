@@ -1,88 +1,104 @@
 "use strict";
-if (typeof module === "object" && typeof module.exports === "object")
-    module.exports = Lexer;
-Lexer.defunct = function (chr) {
-    throw new Error("Unexpected character at index " + (this.index - 1) + ": " + chr);
-};
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+var engineHasStickySupport = false;
+var engineHasUnicodeSupport = false;
 try {
-    Lexer.engineHasStickySupport = typeof /(?:)/.sticky == 'boolean';
+    engineHasStickySupport = typeof /(?:)/.sticky == 'boolean';
 }
 catch (ignored) {
-    Lexer.engineHasStickySupport = false;
+    engineHasStickySupport = false;
 }
 try {
-    Lexer.engineHasUnicodeSupport = typeof /(?:)/.unicode == 'boolean';
+    engineHasUnicodeSupport = typeof /(?:)/.unicode == 'boolean';
 }
 catch (ignored) {
-    Lexer.engineHasUnicodeSupport = false;
+    engineHasUnicodeSupport = false;
 }
-function Lexer(defunct) {
-    if (typeof defunct !== "function")
-        defunct = Lexer.defunct;
-    var tokens = [];
-    var rules = [];
-    var remove = 0;
-    this.state = 0;
-    this.index = 0;
-    this.input = "";
-    this.addRule = function (pattern, action, start) {
+var Lexer = /** @class */ (function () {
+    function Lexer() {
+        var _this = this;
+        this.rules = [];
+        this.tokens = [];
+        this.remove = 0;
+        this.state = 0;
+        this.index = 0;
+        this.input = "";
+        this.reject = false;
+        this.defunct = function (chr) {
+            throw new LexerError(_this.index - 1, chr);
+        };
+    }
+    Lexer.prototype.addRule = function (pattern, action, start) {
         var global = pattern.global;
-        if (!global || Lexer.engineHasStickySupport && !pattern.sticky) {
-            var flags = Lexer.engineHasStickySupport ? "gy" : "g";
+        if (!global || engineHasStickySupport && !pattern.sticky) {
+            var flags = engineHasStickySupport ? "gy" : "g";
             if (pattern.multiline)
                 flags += "m";
             if (pattern.ignoreCase)
                 flags += "i";
-            if (Lexer.engineHasUnicodeSupport && pattern.unicode)
+            if (engineHasUnicodeSupport && pattern.unicode)
                 flags += "u";
             pattern = new RegExp(pattern.source, flags);
         }
-        if (Object.prototype.toString.call(start) !== "[object Array]")
-            start = [0];
-        rules.push({
+        this.rules.push({
             pattern: pattern,
             global: global,
             action: action,
-            start: start
+            start: Array.isArray(start) ? start : [start || 0]
         });
         return this;
     };
-    this.setInput = function (input) {
-        remove = 0;
+    ;
+    Lexer.prototype.setInput = function (input) {
+        this.remove = 0;
         this.state = 0;
         this.index = 0;
-        tokens.length = 0;
+        this.tokens.length = 0;
         this.input = input;
         return this;
     };
-    this.lex = function () {
-        if (tokens.length)
-            return tokens.shift();
+    ;
+    Lexer.prototype.lex = function () {
+        if (this.tokens.length)
+            return this.tokens.shift();
         this.reject = true;
         while (this.index <= this.input.length) {
-            var matches = scan.call(this).splice(remove);
+            var matches = this.scan().splice(this.remove);
             var index = this.index;
             while (matches.length) {
                 if (this.reject) {
                     var match = matches.shift();
                     var result = match.result;
-                    var length = match.length;
-                    this.index += length;
+                    var length_1 = match.length;
+                    this.index += length_1;
                     this.reject = false;
-                    remove++;
-                    var token = match.action.apply(this, result);
-                    if (this.reject)
+                    this.remove++;
+                    var token = match.action(result, this);
+                    if (this.reject) {
                         this.index = result.index;
+                    }
                     else if (typeof token !== "undefined") {
-                        switch (Object.prototype.toString.call(token)) {
-                            case "[object Array]":
-                                tokens = token.slice(1);
-                                token = token[0];
-                            default:
-                                if (length)
-                                    remove = 0;
-                                return token;
+                        if (Array.isArray(token)) {
+                            this.tokens = token.slice(1);
+                            token = token[0];
                         }
+                        if (length_1) {
+                            this.remove = 0;
+                        }
+                        return token;
                     }
                 }
                 else
@@ -91,37 +107,39 @@ function Lexer(defunct) {
             var input = this.input;
             if (index < input.length) {
                 if (this.reject) {
-                    remove = 0;
-                    var token = defunct.call(this, input.charAt(this.index++));
+                    this.remove = 0;
+                    var token = this.defunct(input.charAt(this.index++));
                     if (typeof token !== "undefined") {
-                        if (Object.prototype.toString.call(token) === "[object Array]") {
-                            tokens = token.slice(1);
+                        if (Array.isArray(token)) {
+                            this.tokens = token.slice(1);
                             return token[0];
                         }
-                        else
+                        else {
                             return token;
+                        }
                     }
                 }
                 else {
                     if (this.index !== index)
-                        remove = 0;
+                        this.remove = 0;
                     this.reject = true;
                 }
             }
             else if (matches.length)
                 this.reject = true;
-            else
+            else {
                 break;
+            }
         }
     };
-    function scan() {
+    Lexer.prototype.scan = function () {
         var matches = [];
         var index = 0;
         var state = this.state;
         var lastIndex = this.index;
         var input = this.input;
-        for (var i = 0, length = rules.length; i < length; i++) {
-            var rule = rules[i];
+        for (var i = 0, length_2 = this.rules.length; i < length_2; i++) {
+            var rule = this.rules[i];
             var start = rule.start;
             var states = start.length;
             if ((!states || start.indexOf(state) >= 0) ||
@@ -149,5 +167,24 @@ function Lexer(defunct) {
             }
         }
         return matches;
+    };
+    return Lexer;
+}());
+exports.Lexer = Lexer;
+var LexerError = /** @class */ (function (_super) {
+    __extends(LexerError, _super);
+    function LexerError(at, token) {
+        var _this = _super.call(this) || this;
+        _this.name = 'IllegalTokenException';
+        _this.message = "Unexpected character at index " + at + ": \"" + token + "\" (hex: 0x" + token.charCodeAt(0).toString(16).toUpperCase() + ")";
+        if (Error.captureStackTrace) {
+            Error.captureStackTrace(_this, LexerError);
+        }
+        else {
+            _this.stack = (new Error()).stack;
+        }
+        return _this;
     }
-}
+    return LexerError;
+}(Error));
+exports.LexerError = LexerError;
